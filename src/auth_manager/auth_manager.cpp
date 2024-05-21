@@ -43,9 +43,12 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
         if (ct->valid) {
             auto now = std::chrono::system_clock::now();
             if (now > ct->expires_at + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))) {
+                LOGERROR("cached token: {}\nreceived token: {}", ct->token, token);
                 m_cached_tokens.put(token_hash,
                                     CachedToken{AuthVerifyStatus::UNAUTH, "token expired", false, ct->expires_at});
             }
+        } else {
+            LOGERROR("cached token: {}\nreceived token: {}", ct->token, token);
         }
         msg = ct->msg;
         return ct->response_status;
@@ -53,6 +56,7 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
 
     // not found in cache
     CachedToken cached_token;
+    cached_token.token = token;
     std::string app_name;
     try {
         // this may throw if token is ill formed
@@ -70,6 +74,14 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
         msg = e.what();
         return AuthVerifyStatus::UNAUTH;
     } catch (const std::exception& e) {
+        LOGERROR("Token verification failed: {}", e.what());
+        LOGERROR("Token: {}", token);
+        try {
+            auto decoded{jwt::decode(token)};
+            for (auto [key, value] : decoded.get_header_claims()) {
+                LOGERROR("Key: {}, Value: {}", key, value);
+            }
+        } catch (const std::exception& e) { LOGERROR("Failed to decode token: {}", e.what()); }
         cached_token.set_invalid(AuthVerifyStatus::UNAUTH, e.what());
         m_cached_tokens.put(token_hash, cached_token);
         msg = cached_token.msg;

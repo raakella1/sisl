@@ -223,9 +223,8 @@ grpc::Status RPCHelper::do_authorization(const GrpcServer* server, const grpc::S
         if (it->second.starts_with(bearer)) {
             auto token_ref = it->second.substr(bearer.size());
             std::string msg;
-            return grpc::Status(RPCHelper::to_grpc_statuscode(
-                                    server->auth_verify(std::string(token_ref.begin(), token_ref.end()), msg)),
-                                msg);
+            auto const st = server->auth_verify(std::string(token_ref.begin(), token_ref.end()), msg);
+            return grpc::Status(RPCHelper::to_grpc_statuscode(st), msg);
         } else {
             return grpc::Status(grpc::StatusCode::UNAUTHENTICATED,
                                 grpc::string("authorization header value does not start with 'Bearer '"));
@@ -254,4 +253,4 @@ grpc::StatusCode RPCHelper::to_grpc_statuscode(const sisl::AuthVerifyStatus stat
     return ret;
 }
 
-} // namespace sisl::grpc
+} // namespace sisl

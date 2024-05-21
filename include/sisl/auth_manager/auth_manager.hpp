@@ -36,6 +36,7 @@ struct CachedToken {
     std::string msg;
     bool valid;
     std::chrono::system_clock::time_point expires_at;
+    std::string token{""};
 
     inline void set_invalid(AuthVerifyStatus code, const std::string& reason) {
         valid = false;
@@ -54,9 +55,9 @@ public:
     AuthManager();
     virtual ~AuthManager() = default;
     AuthVerifyStatus verify(const std::string& token, std::string& msg) const;
+    void verify_decoded(const jwt::decoded_jwt& decoded) const;
 
 private:
-    void verify_decoded(const jwt::decoded_jwt& decoded) const;
     virtual std::string download_key(const std::string& key_url) const;
     std::string get_app(const jwt::decoded_jwt& decoded) const;
 
