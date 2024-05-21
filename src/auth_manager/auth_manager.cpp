@@ -40,16 +40,17 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
     // if we have it in cache, just use it to make the decision
     auto const token_hash = md5_sum(token);
     if (auto const ct = m_cached_tokens.get(token_hash); ct) {
+        if (ct->token != token) { LOGERROR("token hash collision: {}\nreceived token: {}", ct->token, token); }
         if (ct->valid) {
             auto now = std::chrono::system_clock::now();
             if (now > ct->expires_at + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))) {
-                LOGERROR("cached token valid to invalid: {}\nreceived token: {}", ct->token, token);
+                LOGERROR("cached token expired, token: {}", token);
                 m_cached_tokens.put(
                     token_hash,
                     CachedToken{AuthVerifyStatus::UNAUTH, "token expired", false, ct->expires_at, ct->token});
             }
         } else {
-            LOGERROR("cached token invalid: {}\nreceived token: {}", ct->token, token);
+            LOGERROR("cached token invalid, token: {}", token);
         }
         msg = ct->msg;
         return ct->response_status;
