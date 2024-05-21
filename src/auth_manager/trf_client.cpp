@@ -72,7 +72,6 @@ void TrfClient::request_with_grant_token() {
 
     try {
         const nlohmann::json resp_json = nlohmann::json::parse(resp.text);
-        LOGINFO("token json response: {}", resp_json.dump());
         m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(resp_json["expires_in"]);
         m_access_token = resp_json["access_token"];
         m_token_type = resp_json["token_type"];
@@ -112,16 +111,12 @@ std::string TrfClient::get_quoted_string(const std::string& resp, const std::str
 std::string TrfClient::get_token() {
     {
         std::shared_lock< std::shared_mutex > lock(m_mtx);
-        if (!(m_access_token.empty() || access_token_expired())) {
-            LOGDEBUG("using cached access token,\ntoken: {}", m_access_token);
-            return m_access_token;
-        }
+        if (!(m_access_token.empty() || access_token_expired())) { return m_access_token; }
     }
 
     // Not a frequent code path, occurs for the first time or when token expires
     std::unique_lock< std::shared_mutex > lock(m_mtx);
     request_with_grant_token();
-    LOGINFO("using requested access token,\ntoken: {}", m_access_token);
     return m_access_token;
 }
 
