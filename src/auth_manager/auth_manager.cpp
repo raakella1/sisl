@@ -139,7 +139,9 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
     const auto verifier{jwt::verify()
                             .with_issuer(SECURITY_DYNAMIC_CONFIG(auth_manager->issuer))
                             .allow_algorithm(jwt::algorithm::rs256(signing_key))
-                            .expires_at_leeway(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))};
+                            .expires_at_leeway(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))
+                            .not_before_leeway(300)
+                            .issued_at_leeway(300)};
 
     // if verification fails, an instance of std::system_error subclass is thrown.
     verifier.verify(decoded);
