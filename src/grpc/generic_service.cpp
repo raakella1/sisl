@@ -64,7 +64,13 @@ void GenericRpcData::enqueue_call_request(::grpc::ServerCompletionQueue& cq) {
                                                static_cast< void* >(m_request_received_tag.ref()));
 }
 
-void GenericRpcData::send_response() { m_stream.Write(m_response, static_cast< void* >(m_buf_write_tag.ref())); }
+void GenericRpcData::send_response() {
+    LOGINFO("RPC {} sending response, req id {}, time taken {}", m_ctx.method(), m_request_id,
+               std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - m_start_time)
+                   .count());
+    m_stream.Write(m_response, static_cast< void* >(m_buf_write_tag.ref()));
+}
+
 void GenericRpcData::send_response(io_blob_list_t const& response_blob_list) {
     serialize_to_byte_buffer(response_blob_list, m_response);
     send_response();
@@ -86,6 +92,9 @@ bool GenericRpcData::do_authorization() {
 
 RpcDataAbstract* GenericRpcData::on_request_received(bool ok) {
     bool in_shutdown = RPCHelper::has_server_shutdown(m_rpc_info->m_server);
+    LOGINFO("RPC {} received, req id {}, time taken: {} ms", m_ctx.method(), m_request_id,
+               std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - m_start_time)
+                   .count());
 
     if (ok) {
         if (!do_authorization()) {
@@ -104,12 +113,18 @@ RpcDataAbstract* GenericRpcData::on_buf_read(bool) {
     // unref is called in send_response which is handled by us (in case of sync calls)
     // or by the handler (for async calls)
     ref();
+    LOGINFO("RPC {} buf read, req id {}, time taken: {} ms", m_ctx.method(), m_request_id,
+               std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - m_start_time)
+                   .count());
     if (RPCHelper::run_generic_handler_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data)) { send_response(); }
     return nullptr;
 }
 
 RpcDataAbstract* GenericRpcData::on_buf_write(bool) {
     m_stream.Finish(m_retstatus, static_cast< void* >(m_request_completed_tag.ref()));
+    LOGINFO("RPC {} finished, req id {}, time taken: {} ms", m_ctx.method(), m_request_id,
+               std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - m_start_time)
+                   .count());
     unref();
     return nullptr;
 }
@@ -117,6 +132,9 @@ RpcDataAbstract* GenericRpcData::on_buf_write(bool) {
 RpcDataAbstract* GenericRpcData::on_request_completed(bool) {
     auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
     if (m_comp_cb) { m_comp_cb(this_rpc_data); }
+    LOGINFO("RPC {} completed, req id {}, time taken: {} ms", m_ctx.method(), m_request_id,
+               std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - m_start_time)
+                   .count());
     return nullptr;
 }
 

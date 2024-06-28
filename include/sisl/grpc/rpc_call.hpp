@@ -61,6 +61,9 @@ public:
     // the grpc queue index on which this request is to be enqueued
     size_t const m_queue_idx;
 
+    // measure rpc lifecycle
+    void set_start_time() { m_start_time = std::chrono::steady_clock::now(); }
+
 protected:
     // ref counter of this instance
     RpcDataAbstract* ref() {
@@ -75,6 +78,7 @@ protected:
     grpc::ServerContext m_ctx;
     std::atomic_bool m_is_canceled{false};
     static inline std::atomic< uint64_t > s_glob_request_id = 0;
+    std::chrono::time_point< std::chrono::steady_clock > m_start_time;
 };
 
 // Associates a tag in a `::grpc::CompletionQueue` with a callback
@@ -91,6 +95,7 @@ public:
     // The callback takes ownership of `this->call_`.
     // @return if not null - a replacement of this call for registration with the server; null otherwise
     RpcDataAbstract* process(bool ok) {
+        m_rpc_data->set_start_time();
         RpcDataAbstract* ret = do_process(ok);
         m_rpc_data->unref(); // undo ref() acquired when tag handed over to grpc.
         return ret;
