@@ -107,32 +107,33 @@ RpcDataAbstract* GenericRpcData::on_request_received(bool ok) {
     return in_shutdown ? nullptr : create_new();
 }
 
-RpcDataAbstract* GenericRpcData::on_buf_read(bool) {
+RpcDataAbstract* GenericRpcData::on_buf_read(bool ok) {
     auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
     // take a ref before the handler cb is called.
     // unref is called in send_response which is handled by us (in case of sync calls)
     // or by the handler (for async calls)
     ref();
-    LOGINFO("RPC {} buf read, req id {}, time taken: {} ms", m_ctx.method(), m_request_id,
+    LOGINFO("RPC {} buf read, ok = {},  req id {}, time taken: {} ms", m_ctx.method(), ok, m_request_id,
                std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - m_start_time)
                    .count());
+    if (!ok) return nullptr;
     if (RPCHelper::run_generic_handler_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data)) { send_response(); }
     return nullptr;
 }
 
-RpcDataAbstract* GenericRpcData::on_buf_write(bool) {
+RpcDataAbstract* GenericRpcData::on_buf_write(bool ok) {
     m_stream.Finish(m_retstatus, static_cast< void* >(m_request_completed_tag.ref()));
-    LOGINFO("RPC {} finished, req id {}, time taken: {} ms", m_ctx.method(), m_request_id,
+    LOGINFO("RPC {} finished, ok = {}, req id {}, time taken: {} ms", m_ctx.method(), ok,  m_request_id,
                std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - m_start_time)
                    .count());
     unref();
     return nullptr;
 }
 
-RpcDataAbstract* GenericRpcData::on_request_completed(bool) {
+RpcDataAbstract* GenericRpcData::on_request_completed(bool ok) {
     auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
     if (m_comp_cb) { m_comp_cb(this_rpc_data); }
-    LOGINFO("RPC {} completed, req id {}, time taken: {} ms", m_ctx.method(), m_request_id,
+    LOGINFO("RPC {} completed, ok = {},  req id {}, time taken: {} ms", m_ctx.method(), ok, m_request_id,
                std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - m_start_time)
                    .count());
     return nullptr;
